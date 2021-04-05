@@ -35,7 +35,7 @@ public class PersonController {
   @Autowired
   JdbcTemplate jdbcTemplate;
 
-  private Scheduler scheduler = Schedulers.newBoundedElastic(4, 4, "biasalah");
+  private Scheduler scheduler = Schedulers.newBoundedElastic(10, 10, "biasalah");
 
   @GetMapping
   public Flux<Person> findAll() {
