@@ -1,7 +1,10 @@
 package com.example.jdbc.demo.controller;
 
-import com.example.jdbc.demo.Mapper;
+import com.example.jdbc.demo.ItemMapper;
+import com.example.jdbc.demo.PersonMapper;
+import com.example.jdbc.demo.entity.Item;
 import com.example.jdbc.demo.entity.Person;
+import com.example.jdbc.demo.repository.ItemRepository;
 import com.example.jdbc.demo.repository.PersonRepository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -33,18 +36,41 @@ public class PersonController {
   PersonRepository personRepository;
 
   @Autowired
+  ItemRepository itemRepository;
+
+  @Autowired
   JdbcTemplate jdbcTemplate;
 
   private Scheduler scheduler = Schedulers.newBoundedElastic(10, 10, "biasalah");
 
   @GetMapping
-  public Flux<Person> findAll() {
-    return Flux.defer(() -> {
+  public Mono<Person> findAll() {
+    return Mono.defer(() -> getPerson().flatMap(p -> getItem().map(i -> p)));
+  }
+
+  private Mono<Person> getPerson() {
+    return Mono.defer(() -> {
       long instant = Instant.now().toEpochMilli();
-      Person person = jdbcTemplate.query("SELECT * FROM person where id = " + randInt(1, 2000000), new Mapper()).stream().findFirst().get();
-//      Person person = personRepository.findById((long) randInt(1, 2000000)).get();
-      log.info("Time taken >> {} ms", Instant.now().toEpochMilli() - instant);
-      return Mono.justOrEmpty(person);
+
+      return Mono.just(jdbcTemplate
+          .query("SELECT * FROM person where id = " + randInt(1, 2000000), new PersonMapper())
+          .stream().findFirst().get())
+          .doOnNext(
+              data -> log
+                  .info("Time taken get person >> {} ms", Instant.now().toEpochMilli() - instant));
+    }).subscribeOn(scheduler);
+  }
+
+  private Mono<Item> getItem() {
+    return Mono.defer(() -> {
+      long instant = Instant.now().toEpochMilli();
+
+      return Mono.just(jdbcTemplate
+          .query("SELECT * FROM item where id = " + randInt(1, 1000000), new ItemMapper())
+          .stream().findFirst().get())
+          .doOnNext(
+              data -> log
+                  .info("Time taken get item >> {} ms", Instant.now().toEpochMilli() - instant));
     }).subscribeOn(scheduler);
   }
 
@@ -61,6 +87,21 @@ public class PersonController {
           .build());
     }
     return personRepository.saveAll(persons);
+  }
+
+  @GetMapping("/insert-item")
+  public boolean insertItem() {
+    List<Item> items = new ArrayList<>();
+    for (int i = 0; i < 1000000; i++) {
+      items.add(Item.builder()
+          .name(RandomString.make(10))
+          .qty(randInt(0, 80))
+          .price((double) randInt(0, 120))
+          .build());
+    }
+    itemRepository.saveAll(items);
+
+    return true;
   }
 
   public static int randInt(int min, int max) {
