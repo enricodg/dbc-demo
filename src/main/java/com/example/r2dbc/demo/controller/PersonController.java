@@ -38,11 +38,13 @@ public class PersonController {
   @Autowired
   DatabaseClient databaseClient;
 
-  private Scheduler scheduler = Schedulers.newBoundedElastic(10, 10, "biasalah");
+//  private Scheduler scheduler = Schedulers.newBoundedElastic(10, 10, "biasalah");
+//  private Scheduler schedulerBaru = Schedulers.newBoundedElastic(10, 10, "schedulerBaru");
 
   @GetMapping
   public Mono<Person> findAll() {
     return Mono.just(randInt(1, 2000000))
+//        .publishOn(scheduler)
         .flatMap(id -> {
           long instant = Instant.now().toEpochMilli();
 
@@ -52,7 +54,9 @@ public class PersonController {
               .doOnNext(
                   s -> log.info("Time taken person >> {} ms", Instant.now().toEpochMilli() - instant))
               .doOnError(log::error);
-        }).flatMap(person -> {
+        })
+//        .publishOn(schedulerBaru)
+        .flatMap(person -> {
           long instant = Instant.now().toEpochMilli();
 
           return databaseClient.sql("SELECT * FROM item WHERE id = :id")
