@@ -1,5 +1,6 @@
 package com.example.r2dbc.demo.controller;
 
+import com.example.r2dbc.demo.entity.Item;
 import com.example.r2dbc.demo.entity.Person;
 import com.example.r2dbc.demo.repository.PersonRepository;
 import io.r2dbc.spi.Row;
@@ -49,9 +50,19 @@ public class PersonController {
               .bind("id", id)
               .map(MAPPING_FUNCTION).first()
               .doOnNext(
-                  s -> log.info("Time taken >> {} ms", Instant.now().toEpochMilli() - instant))
+                  s -> log.info("Time taken person >> {} ms", Instant.now().toEpochMilli() - instant))
               .doOnError(log::error);
-        }).subscribeOn(scheduler);
+        }).flatMap(person -> {
+          long instant = Instant.now().toEpochMilli();
+
+          return databaseClient.sql("SELECT * FROM item WHERE id = :id")
+              .bind("id", randInt(1, 1000000))
+              .map(MAPPING_FUNCTION_ITEM).first()
+              .doOnNext(
+                  s -> log.info("Time taken item >> {} ms", Instant.now().toEpochMilli() - instant))
+              .doOnError(log::error)
+              .map(item -> person);
+        });
   }
 
   public static final BiFunction<Row, RowMetadata, Person> MAPPING_FUNCTION = (row, rowMetaData) -> Person
@@ -62,6 +73,14 @@ public class PersonController {
       .weight(row.get("weight", Integer.class))
       .height(row.get("height", Integer.class))
       .age(row.get("age", Integer.class))
+      .build();
+
+  public static final BiFunction<Row, RowMetadata, Item> MAPPING_FUNCTION_ITEM = (row, rowMetaData) -> Item
+      .builder()
+      .id(row.get("id", Long.class))
+      .name(row.get("name", String.class))
+      .qty(row.get("qty", Integer.class))
+      .price(row.get("price", Double.class))
       .build();
 
   public static int randInt(int min, int max) {
