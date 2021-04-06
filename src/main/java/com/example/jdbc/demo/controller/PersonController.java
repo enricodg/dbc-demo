@@ -42,23 +42,26 @@ public class PersonController {
   JdbcTemplate jdbcTemplate;
 
   private Scheduler scheduler = Schedulers.newBoundedElastic(10, 10, "biasalah");
+  private Scheduler schedulerBaru = Schedulers.newBoundedElastic(10, 10, "baru");
 
   @GetMapping
   public Mono<Person> findAll() {
-    return Mono.defer(() -> getPerson().flatMap(p -> getItem().map(i -> p)));
+    return Mono.defer(() -> Mono.just(randInt(1, 2000000))
+        .publishOn(scheduler).flatMap(this::getPerson)
+        .publishOn(schedulerBaru).flatMap(p -> getItem().map(i -> p)));
   }
 
-  private Mono<Person> getPerson() {
+  private Mono<Person> getPerson(Integer id) {
     return Mono.defer(() -> {
       long instant = Instant.now().toEpochMilli();
 
       return Mono.just(jdbcTemplate
-          .query("SELECT * FROM person where id = " + randInt(1, 2000000), new PersonMapper())
+          .query("SELECT * FROM person where id = " + id, new PersonMapper())
           .stream().findFirst().get())
           .doOnNext(
               data -> log
                   .info("Time taken get person >> {} ms", Instant.now().toEpochMilli() - instant));
-    }).subscribeOn(scheduler);
+    });
   }
 
   private Mono<Item> getItem() {
@@ -71,7 +74,7 @@ public class PersonController {
           .doOnNext(
               data -> log
                   .info("Time taken get item >> {} ms", Instant.now().toEpochMilli() - instant));
-    }).subscribeOn(scheduler);
+    });
   }
 
   @GetMapping("/insert")
