@@ -1,0 +1,119 @@
+version: '3.6'
+services:
+  db:
+    hostname: postgresql
+    container_name: postgresql
+    image: postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: test_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - localnet
+
+  jdbc:
+    # image:
+    hostname: jdbc-demo
+    build:
+      context: ./jdbc-demo
+      dockerfile: Dockerfile
+    container_name: jdbc-demo
+    # environment:
+    networks:
+      - localnet
+    ports:
+      - "8000:8000"
+      - "8849:8849"
+    depends_on:
+      - db
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1024M
+
+  r2dbc:
+    # image:
+    hostname: r2dbc-demo
+    build:
+      context: ./r2dbc-demo
+      dockerfile: Dockerfile
+    container_name: r2dbc-demo
+    # environment:
+    networks:
+      - localnet
+    ports:
+      - "8001:8001"
+      - "8850:8849"
+    depends_on:
+      - db
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1024M
+
+  cadvisor:
+    image: google/cadvisor:v0.33.0
+    ports:
+      - "8080:8080"
+    privileged: true
+    container_name: cadvisor
+    volumes:
+      - /:/rootfs:ro
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - localnet
+
+  prometheus:
+    image: prom/prometheus:v2.20.0
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    ports:
+      - "9090:9090"
+    networks:
+      - localnet
+
+  grafana:
+    image: grafana/grafana:7.1.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - localnet
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    ports:
+      - "9100:9100"
+    networks:
+      - localnet
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter
+    container_name: postgres-exporter
+    ports:
+      - "9187:9187"
+    networks:
+      - localnet
+    environment:
+      DATA_SOURCE_NAME: postgresql://postgres:password@db:5432/test_db?sslmode=disable
+
+networks:
+  localnet:
+    attachable: true
+
+volumes:
+  pgdata:
