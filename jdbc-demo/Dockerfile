@@ -2,7 +2,7 @@ FROM maven:3.8.1-jdk-11 as build
 
 WORKDIR /build
 COPY . /build
-#RUN mvn -f /build/pom.xml clean package -DskipTests
+RUN mvn -f /build/pom.xml clean package -DskipTests
 
 FROM adoptopenjdk/openjdk11:alpine-jre
 
